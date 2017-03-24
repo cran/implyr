@@ -1,0 +1,13 @@
+57db1e644432d33f48ae4c9e4f721dff *DESCRIPTION
+4793319d214ae0a52be0c64efe781825 *LICENSE
+94c2235d8af00cb3d0c724253e92148a *NAMESPACE
+fda916401517d38e5f79d75c5b52aba9 *R/src_impala.R
+708dc78e28ffdf4afc77acc717532dc0 *README.md
+54d9b7884c0788942ffbbdfaf31dbe9c *man/compute.Rd
+dfd024257ff62ffa41173d25de5267f0 *man/copy_to.Rd
+a59a161e434d4903d460ab3e02766bb0 *man/dbDisconnect-src_impala-method.Rd
+ab63ec46469a87c0d76435e8254a77ec *man/dbExecute-src_impala-character-method.Rd
+ad3c21582a5a40434805504cb33cda30 *man/dbGetQuery-src_impala-character-method.Rd
+4dfe84a7d5aef26c337f7ff06cb352db *man/src_desc.Rd
+71513899d96cb2cafb902a2dd06450c4 *man/src_impala.Rd
+a0bfaf9c85d7430431a1bdfccaa56bbe *man/tbl.Rd
