@@ -14,11 +14,9 @@
 
 # register virtual classes
 
-#' @export
 #' @importFrom methods setOldClass
 setOldClass("src_impala")
 
-#' @export
 #' @importFrom methods setOldClass
 setOldClass("tbl_impala")
 
@@ -94,12 +92,10 @@ pkg_env <- new.env()
 #' @importFrom DBI dbExecute
 #' @importFrom DBI dbGetInfo
 #' @importFrom DBI dbSendQuery
-#' @importFrom dplyr src_sql
+#' @importFrom dbplyr src_sql
 #' @importFrom methods callNextMethod
-#' @importFrom methods existsMethod
 #' @importFrom methods isClass
 #' @importFrom methods removeClass
-#' @importFrom methods removeMethod
 #' @importFrom methods getClass
 #' @importFrom methods setClass
 #' @importFrom methods setMethod
@@ -110,6 +106,9 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
   }
   if (!requireNamespace("dplyr", quietly = TRUE)) {
     stop("dplyr is required to use src_impala", call. = FALSE)
+  }
+  if (!requireNamespace("dbplyr", quietly = TRUE)) {
+    stop("dbplyr is required to use src_impala", call. = FALSE)
   }
   if (!requireNamespace("DBI", quietly = TRUE)) {
     stop("DBI is required to use src_impala", call. = FALSE)
@@ -180,22 +179,13 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
   info$package <-
     attr(attr(getClass(class(con)[1]), "className"), "package")
 
-  if (isClass("impala_connection", where = topenv(parent.frame()))) {
-    removeClass("impala_connection", where = topenv(parent.frame()))
-    # TBD: issue warning?
+  if (isClass("impala_connection", where = .GlobalEnv)) {
+    removeClass("impala_connection", where = .GlobalEnv)
   }
   setClass("impala_connection",
            contains = class(con),
-           where = topenv(parent.frame()))
+           where = .GlobalEnv)
 
-  if(existsMethod("dbSendQuery",
-                  c("impala_connection", "character"),
-                  where = topenv(parent.frame()))) {
-    removeMethod("dbSendQuery",
-                 c("impala_connection", "character"),
-                 where = topenv(parent.frame()))
-    # TBD: issue warning?
-  }
   setMethod("dbSendQuery", c("impala_connection", "character"), function(conn, statement, ...) {
     result <- methods::callNextMethod(conn, statement, ...)
     if (isTRUE(pkg_env$order_by_in_subquery)) {
@@ -205,16 +195,8 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
       pkg_env$order_by_in_subquery <- FALSE
     }
     result
-  }, where = topenv(parent.frame()))
+  }, where = .GlobalEnv)
 
-  if (existsMethod("dbExecute",
-                   c("impala_connection", "character"),
-                   where = topenv(parent.frame()))) {
-    removeMethod("dbExecute",
-                 c("impala_connection", "character"),
-                 where = topenv(parent.frame()))
-    # TBD: issue warning?
-  }
   setMethod("dbExecute", c("impala_connection", "character"), function(conn, statement, ...) {
     if (inherits(conn, "JDBCConnection")) {
       result <-
@@ -227,9 +209,10 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
       pkg_env$order_by_in_subquery <- FALSE
     }
     result
-  }, where = topenv(parent.frame()))
+  }, where = .GlobalEnv)
 
   con <- structure(con, class = c("impala_connection", class(con)))
+  attributes(con)$info <- info
 
   src_sql("impala",
           con = con,
@@ -239,13 +222,16 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
 
 #' Describe the Impala data source
 #'
-#' @name src_desc
-#' @param x an object with class class \code{src_impala}
+#' @name db_desc
+#' @param x an object with class class \code{impala_connection}
 #' @return A string containing information about the connection to Impala
 #' @export
-#' @importFrom dplyr src_desc
-src_desc.src_impala <- function(x) {
-  info <- x$info
+#' @importFrom dplyr db_desc
+db_desc.impala_connection <- function(x) {
+  info <- attr(x, "info")
+  if (is.null(info)) {
+    return("???")
+  }
   info$version <-
     sub("\\s?.?(buil|release).*$", "", info$version, ignore.case = TRUE)
   if (!"url" %in% names(info)) {
@@ -279,16 +265,19 @@ src_desc.src_impala <- function(x) {
 #'
 #' @name tbl
 #' @param src an object with class with class \code{src_impala}
-#' @param from a table name
+#' @param from a table name or identifier
 #' @param ... not used
 #' @return An object with class \code{tbl_impala}, \code{tbl_sql},
 #'   \code{tbl_lazy}, \code{tbl}
 #' @examples
 #' \dontrun{
-#' flights_tbl <- tbl(impala, "flights")}
+#' flights_tbl <- tbl(impala, "flights")
+#'
+#' flights_tbl <- tbl(impala, in_schema("nycflights13", "flights"))}
+#' @seealso \code{\link{in_schema}}
 #' @export
+#' @importFrom dbplyr tbl_sql
 #' @importFrom dplyr tbl
-#' @importFrom dplyr tbl_sql
 tbl.src_impala <- function(src, from, ...) {
   tbl_sql("impala", src = src, from = from, ...)
 }
@@ -306,15 +295,18 @@ sql_escape_string.impala_connection <- function(con, x) {
 }
 
 #' @export
-#' @importFrom dplyr base_agg
-#' @importFrom dplyr base_scalar
-#' @importFrom dplyr base_win
-#' @importFrom dplyr build_sql
-#' @importFrom dplyr sql
-#' @importFrom dplyr sql_prefix
+#' @importFrom dbplyr base_agg
+#' @importFrom dbplyr base_scalar
+#' @importFrom dbplyr base_win
+#' @importFrom dbplyr build_sql
+#' @importFrom dbplyr sql
+#' @importFrom dbplyr sql_prefix
+#' @importFrom dbplyr sql_translator
+#' @importFrom dbplyr sql_variant
+#' @importFrom dbplyr win_absent
+#' @importFrom dbplyr win_current_group
+#' @importFrom dbplyr win_over
 #' @importFrom dplyr sql_translate_env
-#' @importFrom dplyr sql_translator
-#' @importFrom dplyr sql_variant
 sql_translate_env.impala_connection <- function(con) {
   sql_variant(
     sql_translator(
@@ -424,9 +416,14 @@ sql_translate_env.impala_connection <- function(con) {
     ),
     sql_translator(
       .parent = base_agg,
-      n = function()
-        sql("count(*)"),
       median = sql_prefix("appx_median"),
+      n = function(x) {
+        if (missing(x)) {
+          sql("count(*)")
+        } else {
+          build_sql(sql("count"), list(x))
+        }
+      },
       sd =  sql_prefix("stddev"),
       var = sql_prefix("variance"),
       paste = function(x, sep = " ") {
@@ -436,9 +433,48 @@ sql_translate_env.impala_connection <- function(con) {
         build_sql("group_concat(", x, ",'')")
       }
     ),
-    base_win
+    sql_translator(
+      .parent = base_win,
+      median = win_absent("median"),
+      n = function(x) {
+        if (missing(x)) {
+          win_over(sql("count(*)"),
+                   partition = win_current_group())
+        } else {
+          win_over(build_sql(sql("count"), list(x)),
+                   partition = win_current_group())
+        }
+      },
+      n_distinct = win_absent("n_distinct"),
+      ndv = win_absent("ndv"),
+      sd = win_absent("sd"),
+      var = win_absent("var")
+    )
   )
 }
+
+#' @export
+#' @importFrom dbplyr sql_build
+#' @importFrom dbplyr sql_optimise
+sql_build.tbl_impala <- function(op, con = NULL, ...) {
+  qry <- dbplyr::sql_build(op$ops, con = con, ...)
+  qry <- sql_optimise(qry, con = con, ...)
+  if (has_arrange_in_subquery(qry)) {
+    pkg_env$order_by_in_subquery <- TRUE
+  }
+  qry
+}
+
+has_arrange_in_subquery <- function(x) {
+  if (!inherits(x$from, "select_query")) {
+    return(FALSE)
+  }
+  if (length(x$from$order_by) > 0) {
+    return(TRUE)
+  }
+  has_arrange_in_subquery(x$from)
+}
+
 
 #' @export
 #' @importFrom dplyr intersect
@@ -451,42 +487,6 @@ intersect.tbl_impala <- function(x, y, copy = FALSE, ...) {
 setdiff.tbl_impala <- function(x, y, copy = FALSE, ...) {
   stop("Impala does not support setdiff operations.", call. = FALSE)
 }
-
-#' @export
-#' @importFrom dplyr build_sql
-#' @importFrom dplyr ident
-#' @importFrom dplyr is.ident
-#' @importFrom dplyr sql
-#' @importFrom dplyr sql_subquery
-#' @importFrom stats setNames
-#' @importFrom utils getFromNamespace
-sql_subquery.impala_connection <-
-  function(con,
-           from,
-           name = getFromNamespace("unique_name", "dplyr")(),
-           ...) {
-    if (is.ident(from)) {
-      setNames(from, name)
-    } else {
-      from <- sql(sub(";$", "", from))
-      if (grepl("\\sORDER BY\\s", from) &&
-          grepl("\\sORDER BY\\s",
-                gsub("OVER\\s?\\([^)]*?\\sORDER BY\\s", "", from))) {
-        # TBD: improve this method of confirming that the ORDER BY is not in an OVER() expression
-        pkg_env$order_by_in_subquery <- TRUE
-        if (!grepl("\\sLIMIT\\s", from)) {
-          from <- sql(paste(from, "LIMIT 9223372036854775807"))
-          # TBD: consider whether to do this, or just issue the warning and not try to sort
-          # TBD: consider whether to enable this as an option,
-          #  possibly using the pkgconfig package to set and get the option,
-          #  since it seems pkgconfig will be used in the new release of dplyr
-        }
-      }
-      build_sql("(", from, ") ", ident(
-        name %||% getFromNamespace("random_table_name", "dplyr")()
-      ), con = con)
-    }
-  }
 
 #' Copy a (very small) local data frame to Impala
 #'
@@ -506,6 +506,7 @@ sql_subquery.impala_connection <-
 #' @param dest an object with class with class \code{src_impala}
 #' @param df a (very small) local data frame
 #' @param name name for the new Impala table
+#' @param overwrite whether to overwrite existing table data (currently ignored)
 #' @param types a character vector giving variable types to use for the columns
 #' @param temporary must be set to \code{FALSE}
 #' @param unique_indexes not used
@@ -513,7 +514,6 @@ sql_subquery.impala_connection <-
 #' @param analyze whether to run \code{COMPUTE STATS} after adding data to the
 #'   new table
 #' @param external whether the new table will be externally managed
-#' @param overwrite whether to overwrite existing table data (currently ignored)
 #' @param force whether to silently continue if the table already exists
 #' @param field_terminator the deliminter to use between fields in text file
 #'   data. Defaults to the ASCII control-A (hex 01) character
@@ -542,13 +542,13 @@ copy_to.src_impala <-
   function(dest,
            df,
            name = deparse(substitute(df)),
+           overwrite = FALSE,
            types = NULL,
            temporary = TRUE,
            unique_indexes = NULL,
            indexes = NULL,
            analyze = TRUE,
            external = FALSE,
-           overwrite = FALSE,
            force = FALSE,
            field_terminator = NULL,
            line_terminator = NULL,
@@ -646,14 +646,16 @@ copy_to.src_impala <-
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat is.string
 #' @importFrom assertthat is.flag
+#' @importFrom dbplyr db_sql_render
+#' @importFrom dbplyr op_grps
+#' @importFrom dbplyr op_vars
 #' @importFrom dplyr %>%
 #' @importFrom dplyr compute
-#' @importFrom dplyr group_by_
-#' @importFrom dplyr groups
-#' @importFrom dplyr op_vars
-#' @importFrom dplyr select_
-#' @importFrom dplyr sql_render
+#' @importFrom dplyr group_by
+#' @importFrom dplyr select
 #' @importFrom dplyr tbl
+#' @importFrom rlang !!!
+#' @importFrom rlang syms
 #' @importFrom utils getFromNamespace
 compute.tbl_impala <-
   function(x,
@@ -689,33 +691,31 @@ compute.tbl_impala <-
       )
     }
 
-    con <- con_acquire(x$src)
-    tryCatch({
-      vars <- op_vars(x)
-      #x_aliased <- select(x, !!! symbols(vars))
-      x_aliased <- select_(x, .dots = vars)
-      db_save_query(
-        con = con,
-        sql = sql_render(x_aliased, con),
-        name = name,
-        temporary = FALSE,
-        analyze = analyze,
-        external = external,
-        overwrite = overwrite,
-        force = force,
-        field_terminator = field_terminator,
-        line_terminator = field_terminator,
-        file_format = file_format,
-        ...
-      )
-    }, finally = {
-      con_release(x$src, con)
-    })
+    vars <- op_vars(x)
+    assert_that(all(unlist(indexes) %in% vars))
+    assert_that(all(unlist(unique_indexes) %in% vars))
 
-    #tbl(x$src, name) %>%
-    #  group_by(!!! symbols(op_grps(x))) %>%
-    #  getFromNamespace("add_op_order", "dplyr")(op_sort(x))
-    tbl(x$src, name) %>% group_by_(.dots = groups(x))
+    x_aliased <- select(x, !!! syms(vars))
+    sql <- db_sql_render(x$src$con, x_aliased$ops)
+
+    # TBD: implement db_compute.impala_connection and call it here instead of db_save_query
+    name <- db_save_query(
+      con = x$src$con,
+      sql = sql,
+      name = name,
+      temporary = FALSE,
+      analyze = analyze,
+      external = external,
+      overwrite = overwrite,
+      force = force,
+      field_terminator = field_terminator,
+      line_terminator = field_terminator,
+      file_format = file_format,
+      ...
+    )
+
+    tbl(x$src, name) %>%
+      group_by(!!! syms(op_grps(x)))
   }
 
 #' @name collect
@@ -745,8 +745,8 @@ collapse.tbl_impala <- function(x, vars = NULL, ...) {
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat is.string
 #' @importFrom assertthat is.flag
+#' @importFrom dbplyr ident
 #' @importFrom dplyr db_save_query
-#' @importFrom dplyr ident
 db_save_query.impala_connection <-
   function(con,
            sql,
@@ -792,7 +792,7 @@ db_save_query.impala_connection <-
                         if (force) {
                           sql("IF NOT EXISTS ")
                         },
-                        ident(table),
+                        ident(name),
                         " ",
                         if (!is.null(field_terminator) ||
                             !is.null(line_terminator)) {
@@ -860,8 +860,8 @@ db_drop_table.impala_connection <-
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat is.string
 #' @importFrom assertthat is.flag
+#' @importFrom dbplyr escape
 #' @importFrom dplyr db_insert_into
-#' @importFrom dplyr escape
 db_insert_into.impala_connection <-
   function(con, table, values, overwrite = FALSE, ...) {
     assert_that(is.string(table),
@@ -919,10 +919,10 @@ db_data_type.impala_connection <- function(con, fields, ...) {
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat is.string
 #' @importFrom assertthat is.flag
+#' @importFrom dbplyr escape
+#' @importFrom dbplyr ident
+#' @importFrom dbplyr sql_vector
 #' @importFrom dplyr db_create_table
-#' @importFrom dplyr escape
-#' @importFrom dplyr ident
-#' @importFrom dplyr sql_vector
 db_create_table.impala_connection <-
   function (con,
             table,
@@ -993,18 +993,9 @@ con_acquire <- function (src) {
   }
   con
 }
-# TBD: after new release of dplyr, change this to:
-# @export
-# @importFrom dplyr con_acquire
-# con_acquire.src_impala <- ...
-
 con_release <- function(src, con) {
   # do nothing
 }
-# TBD: after new release of dplyr, change this to:
-# @export
-# @importFrom dplyr con_release
-# con_release.src_impala <- ...
 
 #' Send SQL query to Impala and retrieve results
 #'
@@ -1132,6 +1123,10 @@ db_disconnector <- function(con, quiet = FALSE) {
     x
   }
 }
+
+#' @export
+#' @importFrom dbplyr in_schema
+dbplyr::in_schema
 
 #' @importFrom assertthat is.string
 is_string_or_null <- function(x) {

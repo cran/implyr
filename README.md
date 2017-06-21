@@ -3,8 +3,6 @@
 implyr
 ======
 
-[![Build Status](https://travis-ci.org/ianmcook/implyr.svg?branch=master)](https://travis-ci.org/ianmcook/implyr) [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/implyr)](https://cran.r-project.org/package=implyr)
-
 **implyr** is a SQL backend to [dplyr](https://cran.r-project.org/package=dplyr) for [Apache Impala (incubating)](https://impala.apache.org), the massively parallel processing query engine for Apache Hadoop. Impala enables low-latency SQL queries on large datasets stored in HDFS, Apache HBase, Apache Kudu, and Amazon S3.
 
 implyr is designed to work with any [DBI](https://cran.r-project.org/package=DBI)-compatible interface to Impala. implyr does not provide the underlying connectivity to Impala, nor does it require that you use one particular R package for connectivity to Impala. Currently, two packages that can provide this connectivity are [odbc](https://cran.r-project.org/package=odbc) and [RJDBC](https://cran.r-project.org/package=RJDBC). Future packages may provide other options for connectivity.
@@ -173,8 +171,15 @@ For this example, start by creating a lazy `tbl` named `flights_tbl` representin
 flights_tbl <- tbl(impala, "flights")
 ```
 
+To specify the database that contains the table, use the function `in_schema()`. For example, if the Impala table named `flights` were in a database named `nycflights13`, then you would use the command:
+
+``` r
+flights_tbl <- tbl(impala, in_schema("nycflights13", "flights"))
+```
+
 The examples here assume that data has already been loaded into the Impala table named `flights`. See the Loading Local Data into Impala section below for information about ways to load data from R into Impala.
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 delay <- flights_tbl %>% 
   select(tailnum, distance, arr_delay) %>%
@@ -191,6 +196,7 @@ When using implyr, you must specify table names and column names using lowercase
 
 Impala does not perform implicit casting; for example, it does not automatically convert numbers to strings when they are used in a string context. Impala requires that you explicitly cast columns to the required types. implyr provides familiar R-style type conversion functions to enable casting to all the scalar [Impala data types](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_datatypes.html). For example, `as.character()` casts a column or column expression to the Impala `STRING` type.
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 flights_tbl %>% 
   transmute(flight_code = paste0(carrier, as.character(flight))) %>% 
@@ -199,7 +205,7 @@ flights_tbl %>%
 
 In addition, you should specify integer values as R `integer` objects instead of `numeric` objects; for example, `1L` or `as.integer(1)` instead of `1`.
 
-See [Introduction to dplyr](https://cran.r-project.org/package=dplyr/vignettes/introduction.html) for more examples of dplyr grammar.
+See [Introduction to dplyr](https://cran.r-project.org/package=dplyr/vignettes/dplyr.html) for more examples of dplyr grammar.
 
 Like other SQL backends to dplyr, implyr delays work until a result needs to be computed, then computes the result as a single query operation.
 
@@ -210,10 +216,11 @@ Like other SQL backends to dplyr, implyr delays work until a result needs to be 
 
 If you print or store a result without using one of these functions, then implyr returns a lazy `tbl`. Only use `collect()` or `as.data.frame()` when the result will be small enough to fit in memory in your R session.
 
-See the [dplyr Databases vignette](https://cran.r-project.org/package=dplyr/vignettes/databases.html) for more information.
+See the [Introduction to d**b**plyr](https://cran.r-project.org/package=dbplyr/vignettes/dbplyr.html) for more information.
 
-implyr supports window functions, which enable computation of ranks, offsets, and cumulative aggregates. See [Window functions and grouped mutate/filter](https://cran.r-project.org/package=dplyr/vignettes/window-functions.html) for more information.
+implyr supports window functions, which enable computation of ranks, offsets, and cumulative aggregates. See [Window functions](https://cran.r-project.org/package=dplyr/vignettes/window-functions.html) for more information.
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 worst_delay_each_day <- flights_tbl %>%
   group_by(year, month, day) %>%
@@ -224,20 +231,15 @@ worst_delay_each_day <- flights_tbl %>%
 
 implyr supports most [two-table verbs](https://cran.r-project.org/package=dplyr/vignettes/two-table.html), which enable joins and set operations.
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 airlines_tbl <- tbl(impala, "airlines")
 inner_join(flights_tbl, airlines_tbl, by = "carrier")
 ```
 
-If you're using dplyr version 0.5.0 and the join key column has the same name in both tables, then you will need to rename the key column in one of the tables to avoid a duplicate column name error ([\#1](https://github.com/ianmcook/implyr/issues/1)):
+implyr supports efficient filtering joins.
 
-``` r
-airlines_tbl <- airlines_tbl %>% rename(airlines.carrier = carrier)
-inner_join(flights_tbl, airlines_tbl, by = c("carrier" = "airlines.carrier"))
-```
-
-implyr supports filtering joins, which are not affected by this issue:
-
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 airlines_tbl <- tbl(impala, "airlines")
 southwest_airlines <- airlines_tbl %>% filter(name == "Southwest Airlines Co.")
@@ -248,6 +250,7 @@ You can also use dplyr join functions to bring together values from `ARRAY` and 
 
 Read the Warnings and Current Limitations section below to understand the ways that working with Impala as a remote dplyr data source is different from working with local data or other remote dplyr data sources.
 
+<!-- if you add more examples here, also add corresponding tests in test-readme.R -->
 Using SQL
 ---------
 
@@ -255,12 +258,14 @@ In addition to using dplyr grammar, you can also issue SQL queries to Impala.
 
 To execute a statement that returns no result set, use the `dbExecute` function:
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 dbExecute(impala, "REFRESH flights")
 ```
 
 To execute a query and return the result to R as a data frame, use the `dbGetQuery` function.
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 flights_by_carrier_df <- dbGetQuery(
   impala,
@@ -272,10 +277,12 @@ Only use `dbGetQuery` when the query result will be small enough to fit in memor
 
 You can also execute SQL and return the result as a lazy `tbl`:
 
+<!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 flights_tbl <- tbl(impala, sql("SELECT * FROM flights"))
 ```
 
+<!-- if you add more examples here, also add corresponding tests in test-readme.R -->
 Disconnecting
 -------------
 
