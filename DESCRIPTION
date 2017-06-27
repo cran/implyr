@@ -1,7 +1,7 @@
 Package: implyr
 Type: Package
 Title: R Interface for Apache Impala
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: c(
     person("Ian", "Cook", email = "ian@cloudera.com", role = c("aut", "cre")),
     person(family = "Cloudera", role = c("cph"))
@@ -24,8 +24,8 @@ SystemRequirements: Impala driver to support a 'DBI'-compatible R
 NeedsCompilation: no
 License: Apache License 2.0 | file LICENSE
 RoxygenNote: 6.0.1
-Packaged: 2017-06-21 19:58:22 UTC; icook
+Packaged: 2017-06-27 16:41:35 UTC; icook
 Author: Ian Cook [aut, cre],
   Cloudera [cph]
 Repository: CRAN
-Date/Publication: 2017-06-21 20:04:48 UTC
+Date/Publication: 2017-06-27 21:16:44 UTC

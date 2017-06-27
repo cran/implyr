@@ -22,6 +22,8 @@ setOldClass("tbl_impala")
 
 # environment for global variables
 pkg_env <- new.env()
+pkg_env$order_by_in_subquery <- FALSE
+pkg_env$order_by_in_query <- FALSE
 
 #' Connect to Impala and create a remote dplyr data source
 #'
@@ -41,8 +43,9 @@ pkg_env <- new.env()
 #'   method \code{\link[DBI]{dbConnect}}. See
 #'   \code{\link[odbc]{dbConnect,OdbcDriver-method}} or
 #'   \code{\link[RJDBC]{dbConnect,JDBCDriver-method}}
-#' @param auto_disconnect whether to automatically close the connection to
-#'   Impala when the object returned by this function is deleted
+#' @param auto_disconnect Should the connection to Impala be automatically
+#'   closed when the object returned by this function is deleted? Pass \code{NA}
+#'   to auto-disconnect but print a message when this happens.
 #' @return An object with class \code{src_impala}, \code{src_sql}, \code{src}
 #' @examples
 #' # Using ODBC connectivity:
@@ -99,8 +102,10 @@ pkg_env <- new.env()
 #' @importFrom methods getClass
 #' @importFrom methods setClass
 #' @importFrom methods setMethod
+#' @importFrom rlang is_false
+#' @importFrom rlang is_true
 #' @importFrom utils getFromNamespace
-src_impala <- function(drv, ..., auto_disconnect = FALSE) {
+src_impala <- function(drv, ..., auto_disconnect = TRUE) {
   if (!requireNamespace("assertthat", quietly = TRUE)) {
     stop("assertthat is required to use src_impala", call. = FALSE)
   }
@@ -124,8 +129,10 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
 
   con <- dbConnect(drv, ...)
 
-  disco <- if (isTRUE(auto_disconnect)) {
-    db_disconnector(con)
+  if (is_false(auto_disconnect)) {
+    disco <- NULL
+  } else {
+    disco <- db_disconnector(con, quiet = is_true(auto_disconnect))
   }
 
   r <- dbGetQuery(con,
@@ -192,8 +199,9 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
       warning(
         "Results may not be in sorted order! Move arrange() after all other verbs for results in sorted order."
       )
-      pkg_env$order_by_in_subquery <- FALSE
     }
+    pkg_env$order_by_in_subquery <- FALSE
+    pkg_env$order_by_in_query <- FALSE
     result
   }, where = .GlobalEnv)
 
@@ -204,10 +212,11 @@ src_impala <- function(drv, ..., auto_disconnect = FALSE) {
     } else {
       result <- methods::callNextMethod(conn, statement, ...)
     }
-    if (isTRUE(pkg_env$order_by_in_subquery)) {
+    if (isTRUE(pkg_env$order_by_in_query)) {
       warning("Results may not be in sorted order! Impala cannot store data in sorted order.")
-      pkg_env$order_by_in_subquery <- FALSE
     }
+    pkg_env$order_by_in_subquery <- FALSE
+    pkg_env$order_by_in_query <- FALSE
     result
   }, where = .GlobalEnv)
 
@@ -399,20 +408,31 @@ sql_translate_env.impala_connection <- function(con) {
       na_if = sql_prefix("nullif", 2),
 
       # string functions
-      paste = function(..., sep = " ") {
-        sql(paste0(
-          "concat_ws(",
-          sql_escape_string(con, sep),
-          ",",
-          paste(list(...), collapse = ","),
-          ")"
-        ))
-        # TBD: simplify this by passing con to build_sql?
+      paste = function(...,
+                       sep = " ",
+                       collapse = NULL) {
+        if (is.null(collapse)) {
+          sql(paste0(
+            "concat_ws(",
+            sql_escape_string(con, sep),
+            ",",
+            paste(list(...), collapse = ","),
+            ")"
+          ))
+          # TBD: simplify this by passing con to build_sql?
+        } else {
+          stop("paste() with collapse argument set can only be used for aggregation",
+               call. = FALSE)
+        }
       },
-      paste0 = function(...) {
-        build_sql("concat(", sql(paste(list(...), collapse = ",")), ")")
+      paste0 = function(..., collapse = NULL) {
+        if (is.null(collapse)) {
+          build_sql("concat(", sql(paste(list(...), collapse = ",")), ")")
+        } else {
+          stop("paste0() with collapse argument set can only be used for aggregation",
+               call. = FALSE)
+        }
       }
-
     ),
     sql_translator(
       .parent = base_agg,
@@ -425,12 +445,37 @@ sql_translate_env.impala_connection <- function(con) {
         }
       },
       sd =  sql_prefix("stddev"),
-      var = sql_prefix("variance"),
-      paste = function(x, sep = " ") {
-        sql(paste0("group_concat(", x, ",", sql_escape_string(con, sep), ")"))
+      unique = function(x) {
+        sql(paste("distinct", x))
       },
-      paste0 = function(x) {
-        build_sql("group_concat(", x, ",'')")
+      var = sql_prefix("variance"),
+      paste = function(x, collapse = NULL) {
+        if (is.null(collapse)) {
+          stop("To use paste() as an aggregate function, set the collapse argument",
+               call. = FALSE)
+        } else {
+          sql(paste0(
+            "group_concat(",
+            x,
+            ",",
+            sql_escape_string(con, collapse),
+            ")"
+          ))
+        }
+      },
+      paste0 = function(x, collapse = NULL) {
+        if (is.null(collapse)) {
+          stop("To use paste0() as an aggregate function, set the collapse argument",
+               call. = FALSE)
+        } else {
+          sql(paste0(
+            "group_concat(",
+            x,
+            ",",
+            sql_escape_string(con, collapse),
+            ")"
+          ))
+        }
       }
     ),
     sql_translator(
@@ -447,34 +492,74 @@ sql_translate_env.impala_connection <- function(con) {
       },
       n_distinct = win_absent("n_distinct"),
       ndv = win_absent("ndv"),
+      paste = function(...,
+                       sep = " ",
+                       collapse = NULL) {
+        if (is.null(collapse)) {
+          sql(paste0(
+            "concat_ws(",
+            sql_escape_string(con, sep),
+            ",",
+            paste(list(...), collapse = ","),
+            ")"
+          ))
+          # TBD: simplify this by passing con to build_sql?
+        } else {
+          stop("paste() with collapse argument is not supported in window functions",
+               call. = FALSE)
+        }
+      },
+      paste0 = function(...,  collapse = NULL) {
+        if (is.null(collapse)) {
+          build_sql("concat(", sql(paste(list(...), collapse = ",")), ")")
+        } else {
+          stop("paste0() with collapse argument is not supported in window functions",
+               call. = FALSE)
+        }
+      },
       sd = win_absent("sd"),
+      unique = function(x) {
+        sql(paste("distinct", x))
+      },
       var = win_absent("var")
     )
   )
 }
 
 #' @export
+#' @importFrom dbplyr db_sql_render
 #' @importFrom dbplyr sql_build
-#' @importFrom dbplyr sql_optimise
-sql_build.tbl_impala <- function(op, con = NULL, ...) {
-  qry <- dbplyr::sql_build(op$ops, con = con, ...)
-  qry <- sql_optimise(qry, con = con, ...)
-  if (has_arrange_in_subquery(qry)) {
+#' @importFrom dbplyr sql_render
+db_sql_render.impala_connection <- function(con, sql, ...) {
+  qry <- sql_build(sql, con = con, ...)
+  if (has_order_by_in_subquery(qry)) {
     pkg_env$order_by_in_subquery <- TRUE
   }
-  qry
+  if (has_order_by(qry)) {
+    pkg_env$order_by_in_query <- TRUE
+  }
+  sql_render(qry, con = con, ...)
 }
 
-has_arrange_in_subquery <- function(x) {
+has_order_by_in_subquery <- function(x) {
   if (!inherits(x$from, "select_query")) {
     return(FALSE)
   }
   if (length(x$from$order_by) > 0) {
     return(TRUE)
   }
-  has_arrange_in_subquery(x$from)
+  has_order_by_in_subquery(x$from)
 }
 
+has_order_by <- function(x) {
+  if (!inherits(x, "select_query")) {
+    return(FALSE)
+  }
+  if (length(x$order_by) > 0) {
+    return(TRUE)
+  }
+  has_order_by(x$from)
+}
 
 #' @export
 #' @importFrom dplyr intersect
@@ -646,7 +731,6 @@ copy_to.src_impala <-
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat is.string
 #' @importFrom assertthat is.flag
-#' @importFrom dbplyr db_sql_render
 #' @importFrom dbplyr op_grps
 #' @importFrom dbplyr op_vars
 #' @importFrom dplyr %>%
@@ -729,7 +813,7 @@ collect.tbl_impala <-
            ...,
            n = Inf,
            warn_incomplete = TRUE) {
-    NextMethod("collapse")
+    NextMethod("collect")
   }
 
 #' @name collapse

@@ -1,8 +1,8 @@
-0bea46d72234cabc71680ebe2eb3ee24 *DESCRIPTION
+5499d8cf351b885a47de8a9925348b1c *DESCRIPTION
 4793319d214ae0a52be0c64efe781825 *LICENSE
-828edbf6ff935fe6d886d28cb8812603 *NAMESPACE
-6fa60882befd804dcfe881e4b37a9014 *NEWS.md
-f53abde088163c98e6673f854aeaf9fb *R/src_impala.R
+1cb17c7aa659e0afba46fb77a37935e4 *NAMESPACE
+f8b27e400210280b53e3beec1bc19b82 *NEWS.md
+ca983fd80433b3bc2777b196c5e64733 *R/src_impala.R
 cd6486c1ea4d13f4622e457ecdbfa4d8 *README.md
 54d9b7884c0788942ffbbdfaf31dbe9c *man/compute.Rd
 189cdf6cecb1530c7153a187220ff59a *man/copy_to.Rd
@@ -11,7 +11,7 @@ ab63ec46469a87c0d76435e8254a77ec *man/dbExecute-src_impala-character-method.Rd
 ad3c21582a5a40434805504cb33cda30 *man/dbGetQuery-src_impala-character-method.Rd
 1e244fa98680bb62f8cd143b29ba21f8 *man/db_desc.Rd
 264fec2a1e17cbdbbee441062a1c288e *man/reexports.Rd
-71513899d96cb2cafb902a2dd06450c4 *man/src_impala.Rd
+7c54de1f33f2bfc44b9e715574e2caf0 *man/src_impala.Rd
 082a71e8f31e3f9339e323f666156bc2 *man/tbl.Rd
 63ca7ebea8e5f5d52c3a64e3c83bdce2 *tests/testthat.R
 85d7a181e35efadce0957dc4fd2dc529 *tests/testthat/helper-src.R
@@ -20,6 +20,7 @@ eeb297b75271aa60a2d73e5aa24b7fec *tests/testthat/test-compute.R
 c4eb08465045ae0b607b06961721633e *tests/testthat/test-copy_to.R
 1121697d9af7c42c13a8903a736e2802 *tests/testthat/test-data.R
 de7da4adf37a708e481a7e711aae036e *tests/testthat/test-error.R
+35e45f7b21c599f1e7663ae7daf1ce4e *tests/testthat/test-paste.R
 5879f24777964ac33f4a6531f8210977 *tests/testthat/test-readme.R
-f5ab65cdabcd2d34b08ecf90da2cb007 *tests/testthat/test-warning.R
+d81a2c83a564b2d70e6f48da58d88626 *tests/testthat/test-warning.R
 bbbe7bbda689d43485119739e3f195e5 *tests/testthat/test-zzz-disconnect.R
