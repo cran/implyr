@@ -3,7 +3,7 @@
 implyr
 ======
 
-**implyr** is a SQL backend to [dplyr](https://cran.r-project.org/package=dplyr) for [Apache Impala (incubating)](https://impala.apache.org), the massively parallel processing query engine for Apache Hadoop. Impala enables low-latency SQL queries on large datasets stored in HDFS, Apache HBase, Apache Kudu, and Amazon S3.
+**implyr** is a SQL backend to [dplyr](https://cran.r-project.org/package=dplyr) for [Apache Impala](https://impala.apache.org), the massively parallel processing query engine for Apache Hadoop. Impala enables low-latency SQL queries on large datasets stored in HDFS, Apache HBase, Apache Kudu, and Amazon S3.
 
 implyr is designed to work with any [DBI](https://cran.r-project.org/package=DBI)-compatible interface to Impala. implyr does not provide the underlying connectivity to Impala, nor does it require that you use one particular R package for connectivity to Impala. Currently, two packages that can provide this connectivity are [odbc](https://cran.r-project.org/package=odbc) and [RJDBC](https://cran.r-project.org/package=RJDBC). Future packages may provide other options for connectivity.
 
@@ -256,14 +256,14 @@ Using SQL
 
 In addition to using dplyr grammar, you can also issue SQL queries to Impala.
 
-To execute a statement that returns no result set, use the `dbExecute` function:
+To execute a statement that returns no result set, use the `dbExecute()` function:
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
 dbExecute(impala, "REFRESH flights")
 ```
 
-To execute a query and return the result to R as a data frame, use the `dbGetQuery` function.
+To execute a query and return the result to R as a data frame, use the `dbGetQuery()` function.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 ``` r
