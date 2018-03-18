@@ -174,7 +174,8 @@ src_impala <- function(drv, ..., auto_disconnect = TRUE) {
       host = l$host,
       port = l$port,
       version = r$version,
-      dbname = r$dbname
+      dbname = r$dbname,
+      dbms.name = "Impala"
     )
   } else {
     info <- dbGetInfo(con)
@@ -253,8 +254,20 @@ src_impala <- function(drv, ..., auto_disconnect = TRUE) {
 #' @export
 #' @importFrom dbplyr tbl_sql
 #' @importFrom dplyr tbl
+#' @importFrom rlang !!
+#' @importFrom tidyselect vars_select
 tbl.src_impala <- function(src, from, ...) {
-  tbl_sql("impala", src = src, from = from, ...)
+  res <- tbl_sql("impala", src = src, from = from, ...)
+  # omit complex columns from returned results
+  complex_types <- attr(res$ops$vars, "complex_type")
+  if (length(complex_types) > 0) {
+    omit <- res$ops$vars[!is.na(complex_types)]
+    if (length(omit) > 0) {
+      complex_cols <- vars_select(colnames(res),  - (!! omit))
+      res <- select(res, complex_cols)
+    }
+  }
+  res
 }
 
 #' Copy a (very small) local data frame to Impala

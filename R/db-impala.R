@@ -54,15 +54,67 @@ db_desc.impala_connection <- function(x) {
 }
 
 #' @export
+#' @importFrom dplyr db_query_fields
+#' @importFrom dplyr sql_select
+#' @importFrom dplyr sql_subquery
+#' @importFrom dbplyr sql
+#' @importFrom DBI dbSendQuery
+#' @importFrom DBI dbClearResult
+#' @importFrom DBI dbFetch
+db_query_fields.impala_connection <- function(con, sql, ...) {
+  # if the argument "sql" is an identifier, it will not contain whitespace
+  # and if not, then it will contain whitespace
+  if (grepl("\\s", sql)) {
+    # get column names with SELECT ... WHERE FALSE
+    sql <- sql_select(con, sql("*"), sql_subquery(con, sql), where = sql("FALSE"))
+    qry <- dbSendQuery(con, sql)
+    on.exit(dbClearResult(qry))
+    res <- dbFetch(qry, 0)
+    names(res)
+  } else {
+    # get column names with DESCRIBE
+    sql <- paste("DESCRIBE", sql)
+    res <- dbGetQuery(con, sql)
+    # attribute "complex" represents whether each column has complex type
+    is_complex <- grepl("^\\s*(array|map|struct)<", res$type, ignore.case = TRUE)
+    if (any(is_complex)) {
+      complex_type <- rep_len(as.character(NA), length(res$name))
+      complex_type[grepl("^\\s*array<", res$type, ignore.case = TRUE)] <- "array"
+      complex_type[grepl("^\\s*map<", res$type, ignore.case = TRUE)] <- "map"
+      complex_type[grepl("^\\s*struct<", res$type, ignore.case = TRUE)] <- "struct"
+      attr(res$name, "complex_type") <- complex_type
+    }
+    res$name
+  }
+}
+
+#' @export
 #' @importFrom dplyr sql_escape_ident
 sql_escape_ident.impala_connection <- function(con, x) {
-  sql_quote(x, "`")
+  impala_ident_quote(con, x, "`")
 }
 
 #' @export
 #' @importFrom dplyr sql_escape_string
 sql_escape_string.impala_connection <- function(con, x) {
   sql_quote(x, "'")
+}
+
+impala_ident_quote <- function(con, x, quote) {
+  if (length(x) == 0) {
+    return(x)
+  }
+
+  y <- strsplit(x, ".", fixed = TRUE)
+  y <- vapply(X = y, FUN = function(yi) {
+    yi <- gsub(quote, paste0(quote, quote), yi, fixed = TRUE)
+    yi <- paste0(quote, yi, quote)
+    paste(yi, collapse = ".")
+  }, FUN.VALUE = character(1))
+  y[is.na(x)] <- "NULL"
+  names(y) <- names(x)
+
+  y
 }
 
 #' @export
