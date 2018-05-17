@@ -1,3 +1,8 @@
+# implyr 0.2.3.9000
+
+* Made minor bugfixes and improvements
+* Added rJava to Suggests (#26)
+
 # implyr 0.2.3
 
 * Updated for compatibility with dplyr 0.7.4

@@ -134,7 +134,6 @@ sql_translate_env.impala_connection <- function(con) {
   sql_variant(
     sql_translator(
       .parent = base_scalar,
-
       # type conversion functions
       as.character = function(x)
         build_sql("cast(", x, " as string)"),
@@ -290,6 +289,15 @@ sql_translate_env.impala_connection <- function(con) {
             ")"
           ))
         }
+      },
+      str_collapse = function(x, collapse) {
+        sql(paste0(
+          "group_concat(",
+          x,
+          ",",
+          sql_escape_string(con, collapse),
+          ")"
+        ))
       }
     ),
     sql_translator(
@@ -331,6 +339,7 @@ sql_translate_env.impala_connection <- function(con) {
                call. = FALSE)
         }
       },
+      str_collapse = win_absent("str_collapse"),
       sd = win_absent("sd"),
       unique = function(x) {
         sql(paste("distinct", x))
