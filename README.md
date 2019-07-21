@@ -1,14 +1,16 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# implyr
+# implyr <img src="man/figures/logo.png" align="right" height="139" />
+
+## Overview
 
 **implyr** is a SQL backend to
 [dplyr](https://cran.r-project.org/package=dplyr) for [Apache
 Impala](https://impala.apache.org), the massively parallel processing
-query engine for Apache Hadoop. Impala enables low-latency SQL queries
-on large datasets stored in HDFS, Apache HBase, Apache Kudu, Amazon S3,
-Microsoft ADLS, and Dell EMC Isilon.
+query engine. Impala enables low-latency SQL queries on large datasets
+stored in HDFS, Apache HBase, Apache Kudu, Amazon S3, Microsoft ADLS,
+and Dell EMC Isilon.
 
 implyr is designed to work with any
 [DBI](https://cran.r-project.org/package=DBI)-compatible interface to
@@ -45,7 +47,7 @@ performance and compatibility.
 1.  Ensure that the system where your R code will run supports ODBC.
     ODBC support is built into Windows but requires
     [unixODBC](http://www.unixodbc.org) or [iODBC](http://www.iodbc.org)
-    on Linux and Mac OS.
+    on Linux and macOS.
 
 2.  Install the odbc package from CRAN:
     
@@ -59,7 +61,7 @@ performance and compatibility.
 
 4.  Complete the installation and configuration steps described in the
     [odbc package
-    README](https://cran.r-project.org/package=odbc/README.html#installation)
+    README](https://cran.r-project.org/package=odbc/readme/README.html#installation)
     and the [Impala ODBC driver installation
     guide](https://www.cloudera.com/content/www/en-us/documentation/other/connectors/impala-odbc/latest/Cloudera-ODBC-Driver-for-Impala-Install-Guide.pdf).
 
@@ -146,8 +148,7 @@ library(RJDBC)
 
 Initialize the Java Virtual Machine (JVM) by calling `.jinit()` and
 passing a vector containing the paths to all the Impala JDBC driver JAR
-files as the `classpath`
-argument:
+files as the `classpath` argument:
 
 ``` r
 impala_classpath <- list.files(path = "/path/to/jdbc/driver", pattern = "\\.jar$", full.names = TRUE)
@@ -178,16 +179,14 @@ If you are using the JDBC version 4.0 driver, specify
 Call `src_impala()` to connect to Impala and create a dplyr data source.
 In the call to `src_impala()`, specify a JDBC connection string as the
 first argument. Optionally, specify a username as the second argument
-and a password as the third argument. For
-example:
+and a password as the third argument. For example:
 
 ``` r
 impala <- src_impala(drv, "jdbc:impala://host:21050", "username", "password")
 ```
 
 Or include the username and password (or other authentication
-properties) in the connection
-string:
+properties) in the connection string:
 
 ``` r
 impala <- src_impala(drv, "jdbc:impala://host:21050;UID=username;PWD=password")
@@ -243,8 +242,7 @@ flights_tbl <- tbl(impala, in_schema("nycflights13", "flights"))
 The examples here assume that data has already been loaded into the
 Impala table named `flights`. See the [Loading Local Data into
 Impala](#loading-local-data-into-impala) section below for information
-about ways to load data from R into
-Impala.
+about ways to load data from R into Impala.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -273,8 +271,7 @@ required types. implyr provides familiar R-style type conversion
 functions to enable casting to all the scalar [Impala data
 types](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_datatypes.html).
 For example, `as.character()` casts a column or column expression to the
-Impala `STRING`
-type.
+Impala `STRING` type.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -317,8 +314,7 @@ for more information.
 implyr supports window functions, which enable computation of ranks,
 offsets, and cumulative aggregates. See [Window
 functions](https://cran.r-project.org/package=dplyr/vignettes/window-functions.html)
-for more
-information.
+for more information.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -332,8 +328,7 @@ worst_delay_each_day <- flights_tbl %>%
 
 implyr supports most [two-table
 verbs](https://cran.r-project.org/package=dplyr/vignettes/two-table.html),
-which enable joins and set
-operations.
+which enable joins and set operations.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -342,8 +337,7 @@ airlines_tbl <- tbl(impala, "airlines")
 inner_join(flights_tbl, airlines_tbl, by = "carrier")
 ```
 
-implyr supports efficient filtering
-joins.
+implyr supports efficient filtering joins.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -363,8 +357,7 @@ Read the [Warnings and Current
 Limitations](#warnings-and-current-limitations) section below to
 understand the ways that working with Impala as a remote dplyr data
 source is different from working with local data or other remote dplyr
-data
-sources.
+data sources.
 
 <!-- if you add more examples here, also add corresponding tests in test-readme.R -->
 
@@ -383,8 +376,7 @@ dbExecute(impala, "REFRESH flights")
 ```
 
 To execute a query and return the result to R as a data frame, use the
-`dbGetQuery()`
-function.
+`dbGetQuery()` function.
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -398,8 +390,7 @@ flights_by_carrier_df <- dbGetQuery(
 Only use `dbGetQuery` when the query result will be small enough to fit
 in memory in your R session.
 
-You can also execute SQL and return the result as a lazy
-`tbl`:
+You can also execute SQL and return the result as a lazy `tbl`:
 
 <!-- if you change this example, also change the corresponding test in test-readme.R -->
 
@@ -476,8 +467,7 @@ dbExecute(impala, "CREATE TABLE flights (
   LOCATION '/user/hive/warehouse/flights'")
 ```
 
-Next, write the data frame `flights` to a local
-file:
+Next, write the data frame `flights` to a local file:
 
 ``` r
 write.table(flights, file = "flights", quote = FALSE, sep = "\t", na = "\\N", row.names = FALSE, col.names = FALSE)

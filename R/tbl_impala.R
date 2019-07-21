@@ -1,4 +1,4 @@
-# Copyright 2018 Cloudera Inc.
+# Copyright 2019 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -183,14 +183,13 @@ impala_unnest <- function(data, col, ...) {
   if (!inherits(res, "tbl_impala")) {
     stop("data argument must be a tbl_impala", call. = FALSE)
   }
-  if (!identical(class(res$ops$dots), "quosures") ||
-      identical(as.character(res$ops$dots), "~rename_complex_cols")) {
-    stop("impala_unnest() can only be applied once to a tbl_impala",
-         call. = FALSE)
-  }
-  if (!identical(class(res$ops$dots), "quosures") ||
-      !identical(as.character(res$ops$dots), "~complex_cols")) {
+  if (!"vars" %in% names(res$ops$x) ||
+      all(is.na(attr(res$ops$x$vars, "complex_type")))) {
     stop("data argument must contain complex columns", call. = FALSE)
+  }
+  if (is.null(attr(res$ops$x$vars, "complex_type"))) {
+    stop("impala_unnest() can only be applied once to a tbl_impala",
+          call. = FALSE)
   }
   if (!"x" %in% names(res$ops$x) ||
       !inherits(res$ops$x$x, "ident")) {
@@ -209,7 +208,7 @@ impala_unnest <- function(data, col, ...) {
   coltype <- attr(res$ops$x$vars, "complex_type")[colindex]
   tablename <- as.character(res$ops$x$x)
   if (identical(coltype, "array")) {
-    quoted_tablename <- impala_ident_quote(res$src$con, tablename, "`")
+    quoted_tablename <- impala_escape_ident(res$src$con, tablename, "`")
     res$ops$x$x <- ident_q(
       paste0(quoted_tablename, ", ", quoted_tablename, ".`", colname,"`")
     )
@@ -230,7 +229,7 @@ impala_unnest <- function(data, col, ...) {
     )
     res <- select(res, rename_complex_cols)
   } else if (identical(coltype, "map")) {
-    quoted_tablename <- impala_ident_quote(res$src$con, tablename, "`")
+    quoted_tablename <- impala_escape_ident(res$src$con, tablename, "`")
     res$ops$x$x <- ident_q(
       paste0(quoted_tablename, ", ", quoted_tablename, ".`", colname,"`")
     )

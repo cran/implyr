@@ -1,4 +1,4 @@
-# Copyright 2018 Cloudera Inc.
+# Copyright 2019 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -369,7 +369,9 @@ copy_to.src_impala <-
   class(df) <- "data.frame"
   con <- con_acquire(dest)
   tryCatch({
-    types <- types %||% db_data_type(con, df)
+    if (is.null(types)) {
+      types <- db_data_type(con, df)
+    }
     names(types) <-
       names(df) # TBD: convert illegal names to legal names?
     tryCatch({
@@ -396,6 +398,30 @@ copy_to.src_impala <-
     con_release(dest, con)
   })
   invisible(tbl(dest, name))
+}
+
+#' List all available databases
+#'
+#' @description Returns a character vector containing the names of all the
+#'   available databases, in alphabetical order, including the
+#'   \code{_impala_builtins} database.
+#'
+#' @param src object with class class \code{src_impala}
+#' @param ... Optional arguments; currently unused.
+#'
+#' @export
+#' @importFrom DBI dbGetQuery
+src_databases <- function(src, ...) {
+  res <- dbGetQuery(con_acquire(src), "SHOW DATABASES")
+  databaseNames <- res$name
+  sort(databaseNames)
+}
+
+#' @rdname src_databases
+#' @details \code{src_schemas()} is an alias for \code{src_databases()}
+#' @export
+src_schemas <- function(src, ...) {
+  src_databases(src, ...)
 }
 
 con_acquire <- function (src) {
@@ -485,14 +511,6 @@ db_disconnector <- function(con, quiet = FALSE) {
     dbDisconnect(con)
   })
   environment()
-}
-
-`%||%` <- function(x, y) {
-  if (is.null(x)) {
-    y
-  } else {
-    x
-  }
 }
 
 #' @importFrom assertthat is.string

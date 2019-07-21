@@ -1,4 +1,4 @@
-# Copyright 2018 Cloudera Inc.
+# Copyright 2019 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ db_query_fields.impala_connection <- function(con, sql, ...) {
 #' @export
 #' @importFrom dplyr sql_escape_ident
 sql_escape_ident.impala_connection <- function(con, x) {
-  impala_ident_quote(con, x, "`")
+  impala_escape_ident(con, x, "`")
 }
 
 #' @export
@@ -100,7 +100,7 @@ sql_escape_string.impala_connection <- function(con, x) {
   sql_quote(x, "'")
 }
 
-impala_ident_quote <- function(con, x, quote) {
+impala_escape_ident <- function(con, x, quote) {
   if (length(x) == 0) {
     return(x)
   }
@@ -109,7 +109,11 @@ impala_ident_quote <- function(con, x, quote) {
   y <- vapply(X = y, FUN = function(yi) {
     yi <- gsub(quote, paste0(quote, quote), yi, fixed = TRUE)
     yi <- paste0(quote, yi, quote)
-    paste(yi, collapse = ".")
+    out <- paste(yi, collapse = ".")
+    if (any(grepl("(", as.character(out), fixed = TRUE))) {
+      return(gsub(paste0(quote, ".", quote), ".", out))
+    }
+    out
   }, FUN.VALUE = character(1))
   y[is.na(x)] <- "NULL"
   names(y) <- names(x)
@@ -123,13 +127,18 @@ impala_ident_quote <- function(con, x, quote) {
 #' @importFrom dbplyr base_win
 #' @importFrom dbplyr build_sql
 #' @importFrom dbplyr sql
+#' @importFrom dbplyr sql_expr
+#' @importFrom dbplyr sql_aggregate
 #' @importFrom dbplyr sql_prefix
 #' @importFrom dbplyr sql_translator
 #' @importFrom dbplyr sql_variant
 #' @importFrom dbplyr win_absent
+#' @importFrom dbplyr win_aggregate
 #' @importFrom dbplyr win_current_group
 #' @importFrom dbplyr win_over
 #' @importFrom dplyr sql_translate_env
+#' @importFrom rlang !!
+#' @importFrom rlang !!!
 sql_translate_env.impala_connection <- function(con) {
   sql_variant(
     sql_translator(
@@ -186,11 +195,21 @@ sql_translate_env.impala_connection <- function(con) {
       },
       as.timestamp = function(x)
         build_sql("cast(", x, " as timestamp)"),
+      as.datetime = function(x)
+        build_sql("cast(", x, " as timestamp)"),
+      as_datetime = function(x)
+        build_sql("cast(", x, " as timestamp)"),
+      as.Date = function(x)
+        build_sql("to_date(", x, ")"),
+      as_date = function(x)
+        build_sql("to_date(", x, ")"),
+      as.POSIXct = function(x)
+        build_sql("cast(", x, " as timestamp)"),
 
       # mathematical functions
-      is.nan = sql_prefix("is_nan"),
-      is.infinite = sql_prefix("is_inf"),
-      is.finite = sql_prefix("!is_inf"),
+      is.nan = sql_prefix("is_nan", 1),
+      is.infinite = sql_prefix("is_inf", 1),
+      is.finite = sql_prefix("!is_inf", 1),
       log = function(x, base = exp(1)) {
         if (base != exp(1)) {
           build_sql("log(", base, ", ", x, ")")
@@ -201,10 +220,19 @@ sql_translate_env.impala_connection <- function(con) {
       pmax = sql_prefix("greatest"),
       pmin = sql_prefix("least"),
 
-      # date and time functions (work like lubridate)
-      week = sql_prefix("weekofyear"),
-      yday = sql_prefix("dayofyear"),
-      mday = sql_prefix("day"),
+      # lubridate functions
+      year = sql_prefix("year", 1),
+      month = function(x, label = FALSE) {
+        if (label) {
+          build_sql("from_unixtime(unix_timestamp(", x, "), 'MMM')")
+        } else {
+          build_sql("month(", x, ")")
+        }
+      },
+      isoweek = sql_prefix("weekofyear", 1),
+      yday = sql_prefix("dayofyear", 1),
+      day = sql_prefix("day", 1),
+      mday = sql_prefix("day", 1),
       wday = function(x, label = FALSE, abbr = TRUE) {
         if (label) {
           if (abbr) {
@@ -216,23 +244,22 @@ sql_translate_env.impala_connection <- function(con) {
           build_sql("dayofweek(", x, ")")
         }
       },
+      hour = sql_prefix("hour", 1),
+      minute = sql_prefix("minute", 1),
+      second = sql_prefix("second", 1),
+      today = function()
+        build_sql("to_date(now())"),
+      now = sql_prefix("now", 0),
+      floor_date = function(x, unit = "second")
+        build_sql("date_trunc(", unit, ", ", x, ")"),
 
       # conditional functions
       na_if = sql_prefix("nullif", 2),
 
       # string functions
-      paste = function(...,
-                       sep = " ",
-                       collapse = NULL) {
+      paste = function(..., sep = " ", collapse = NULL) {
         if (is.null(collapse)) {
-          sql(paste0(
-            "concat_ws(",
-            sql_escape_string(con, sep),
-            ",",
-            paste(list(...), collapse = ","),
-            ")"
-          ))
-          # TBD: simplify this by passing con to build_sql?
+          sql_expr(concat_ws(!!sep, !!!list(...)))
         } else {
           stop("paste() with collapse argument set can only be used for aggregation",
                call. = FALSE)
@@ -240,16 +267,105 @@ sql_translate_env.impala_connection <- function(con) {
       },
       paste0 = function(..., collapse = NULL) {
         if (is.null(collapse)) {
-          build_sql("concat(", sql(paste(list(...), collapse = ",")), ")")
+          sql_expr(concat(!!!list(...)))
         } else {
           stop("paste0() with collapse argument set can only be used for aggregation",
                call. = FALSE)
         }
-      }
+      },
+      nchar = sql_prefix("length", 1),
+      trim = sql_prefix("trim"),
+      trimws = function(string, side = c("both", "left", "right")) {
+        side <- match.arg(side)
+        switch(
+          side,
+          left = sql_expr(ltrim(!!string)),
+          right = sql_expr(rtrim(!!string)),
+          both = sql_expr(trim(!!string))
+        )
+      },
+      toupper = sql_prefix("upper", 1),
+      tolower = sql_prefix("lower", 1),
+      rev = sql_prefix("reverse", 1),
+      substr = function(x, start, stop) {
+        start <- as.integer(start)
+        length <- pmax(as.integer(stop) - start + 1L, 0L)
+        build_sql(sql("substr"), list(x, start, length))
+      },
+
+      # stringr functions
+      str_c = function(..., sep = "", collapse = NULL) {
+        if (is.null(collapse)) {
+          sql_expr(concat_ws(!!sep, !!!list(...)))
+        } else {
+          stop("str_c() with collapse argument set can only be used for aggregation",
+               call. = FALSE)
+        }
+      },
+      str_length = sql_prefix("length", 1),
+      str_trim = function(string, side = c("both", "left", "right")) {
+        side <- match.arg(side)
+        switch(
+          side,
+          left = sql_expr(ltrim(!!string)),
+          right = sql_expr(rtrim(!!string)),
+          both = sql_expr(trim(!!string))
+        )
+      },
+      str_to_lower = sql_prefix("lower", 1),
+      str_to_upper = sql_prefix("upper", 1),
+      str_to_title = sql_prefix("initcap", 1),
+      str_sub = function(string, start = 1L, end = -1L) {
+        stopifnot(length(start) == 1L, length(end) == 1L)
+        start <- as.integer(start)
+        end <- as.integer(end)
+        if (end == -1L) {
+          build_sql(sql("substr"), list(string, start))
+        } else if (end < 0) {
+          if (start < 0) {
+            length <- pmax(-start + end + 1L, 0L)
+          } else {
+            length <- sql_expr(length(!!string) - !!start - !!(abs(end)) + 2L)
+          }
+          build_sql(sql("substr"), list(string, start, length))
+        } else if (end > 0) {
+          if (start < 0) {
+            length <- sql_expr(length(!!string) - !!(abs(start)) + !!end - 2L)
+          } else {
+            length <- pmax(end - start + 1L, 0L)
+          }
+          build_sql(sql("substr"), list(string, start, length))
+        } else if (end == 0) {
+          build_sql(sql("substr"), list(string, start, 0L))
+        }
+      },
+
+      # regular expression functions
+      grepl = function(pattern, x, ignore.case = FALSE) {
+        if (identical(ignore.case, TRUE)) {
+          build_sql(x, sql(" IREGEXP "), pattern)
+        } else {
+          build_sql(x, sql(" REGEXP "), pattern)
+        }
+      },
+      gsub = function(pattern, replacement, x) {
+        build_sql(sql("regexp_replace"), list(x, pattern, replacement))
+      },
+
+      # bitwise functions
+      bitwNot = sql_prefix("bitnot", 1),
+      bitwAnd = sql_prefix("bitand", 2),
+      bitwOr = sql_prefix("bitor", 2),
+      bitwXor = sql_prefix("bitxor", 2),
+      bitwShiftL = sql_prefix("shiftleft", 2),
+      bitwShiftR = sql_prefix("shiftright", 2)
+
     ),
     sql_translator(
       .parent = base_agg,
-      median = sql_prefix("appx_median"),
+      appx_median = sql_aggregate("appx_median"),
+      avg = sql_aggregate("avg"),
+      median = sql_aggregate_compat("appx_median", "median"),
       n = function(x) {
         if (missing(x)) {
           sql("count(*)")
@@ -257,51 +373,69 @@ sql_translate_env.impala_connection <- function(con) {
           build_sql(sql("count"), list(x))
         }
       },
-      sd =  sql_prefix("stddev"),
+      ndv = sql_aggregate("ndv"),
+      sd = sql_aggregate_compat("stddev", "sd"),
+      stddev = sql_aggregate("stddev"),
+      stddev_samp = sql_aggregate("stddev_samp"),
+      stddev_pop = sql_aggregate("stddev_pop"),
       unique = function(x) {
         sql(paste("distinct", x))
       },
-      var = sql_prefix("variance"),
-      paste = function(x, collapse = NULL) {
+      var = sql_aggregate_compat("variance", "var"),
+      variance = sql_aggregate("variance"),
+      variance_samp = sql_aggregate("variance_samp"),
+      variance_pop = sql_aggregate("variance_pop"),
+      var_samp = sql_aggregate("var_samp"),
+      var_pop = sql_aggregate("var_pop"),
+      paste = function(..., sep = " ", collapse = NULL) {
         if (is.null(collapse)) {
           stop("To use paste() as an aggregate function, set the collapse argument",
                call. = FALSE)
         } else {
-          sql(paste0(
-            "group_concat(",
-            x,
-            ",",
-            sql_escape_string(con, collapse),
-            ")"
-          ))
+          if (length(list(...)) > 1) {
+            sql_expr(group_concat(concat_ws(!!sep, !!!list(...)), !!collapse))
+          } else {
+            sql_expr(group_concat(!!!list(...), !!collapse))
+          }
         }
       },
-      paste0 = function(x, collapse = NULL) {
+      paste0 = function(..., collapse = NULL) {
         if (is.null(collapse)) {
           stop("To use paste0() as an aggregate function, set the collapse argument",
                call. = FALSE)
         } else {
-          sql(paste0(
-            "group_concat(",
-            x,
-            ",",
-            sql_escape_string(con, collapse),
-            ")"
-          ))
+          if (length(list(...)) > 1) {
+            sql_expr(group_concat(concat(!!!list(...)), !!collapse))
+          } else {
+            sql_expr(group_concat(!!!list(...), !!collapse))
+          }
+        }
+      },
+      str_c = function(..., sep = "", collapse = NULL) {
+        if (is.null(collapse)) {
+          stop("To use str_c() as an aggregate function, set the collapse argument",
+               call. = FALSE)
+        } else {
+          if (length(list(...)) > 1) {
+            sql_expr(group_concat(concat_ws(!!sep, !!!list(...)), !!collapse))
+          } else {
+            sql_expr(group_concat(!!!list(...), !!collapse))
+          }
         }
       },
       str_collapse = function(x, collapse) {
-        sql(paste0(
-          "group_concat(",
-          x,
-          ",",
-          sql_escape_string(con, collapse),
-          ")"
-        ))
+        warning("str_collapse() is deprecated. Use str_flatten() instead.",
+                call. = FALSE)
+        sql_expr(group_concat(!!x, !!collapse))
+      },
+      str_flatten = function(x, collapse) {
+        sql_expr(group_concat(!!x, !!collapse))
       }
     ),
     sql_translator(
       .parent = base_win,
+      appx_median = win_absent("appx_median"),
+      avg = win_aggregate("avg"),
       median = win_absent("median"),
       n = function(x) {
         if (missing(x)) {
@@ -314,18 +448,9 @@ sql_translate_env.impala_connection <- function(con) {
       },
       n_distinct = win_absent("n_distinct"),
       ndv = win_absent("ndv"),
-      paste = function(...,
-                       sep = " ",
-                       collapse = NULL) {
+      paste = function(..., sep = " ", collapse = NULL) {
         if (is.null(collapse)) {
-          sql(paste0(
-            "concat_ws(",
-            sql_escape_string(con, sep),
-            ",",
-            paste(list(...), collapse = ","),
-            ")"
-          ))
-          # TBD: simplify this by passing con to build_sql?
+          sql_expr(concat_ws(!!sep, !!!list(...)))
         } else {
           stop("paste() with collapse argument is not supported in window functions",
                call. = FALSE)
@@ -333,20 +458,48 @@ sql_translate_env.impala_connection <- function(con) {
       },
       paste0 = function(...,  collapse = NULL) {
         if (is.null(collapse)) {
-          build_sql("concat(", sql(paste(list(...), collapse = ",")), ")")
+          sql_expr(concat(!!!list(...)))
         } else {
           stop("paste0() with collapse argument is not supported in window functions",
                call. = FALSE)
         }
       },
+      str_c = function(..., sep = "", collapse = NULL) {
+        if (is.null(collapse)) {
+          sql_expr(concat_ws(!!sep, !!!list(...)))
+        } else {
+          stop("str_c() with collapse argument is not supported in window functions",
+               call. = FALSE)
+        }
+      },
       str_collapse = win_absent("str_collapse"),
+      str_flatten = win_absent("str_flatten"),
       sd = win_absent("sd"),
+      stddev = win_absent("stddev"),
+      stddev_samp = win_absent("stddev_samp"),
+      stddev_pop = win_absent("stddev_pop"),
       unique = function(x) {
         sql(paste("distinct", x))
       },
-      var = win_absent("var")
+      var = win_absent("var"),
+      variance = win_absent("variance"),
+      variance_samp = win_absent("variance_samp"),
+      variance_pop = win_absent("variance_pop"),
+      var_samp = win_absent("var_samp"),
+      var_pop = win_absent("var_pop")
     )
   )
+}
+
+#' @importFrom dbplyr sql_aggregate
+sql_aggregate_compat <- function(f, ...) {
+  # This function allows the SQL translations to support dbplyr 1.3.0
+  # and earlier while using the optional f_r argument to sql_aggregate()
+  if (length(args(sql_aggregate)) < 2) {
+    sql_aggregate(f)
+  } else {
+    sql_aggregate(f, ...)
+  }
 }
 
 #' @export
@@ -595,3 +748,4 @@ db_create_table.impala_connection <-
   dbExecute(con, sql)
 }
 
+globalVariables(c("concat", "concat_ws", "group_concat", "trim", "ltrim", "rtrim", "length"))
