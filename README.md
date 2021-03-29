@@ -50,7 +50,7 @@ performance and compatibility.
     on Linux and macOS.
 
 2.  Install the odbc package from CRAN:
-    
+
     ``` r
     install.packages("odbc")
     ```
@@ -63,7 +63,7 @@ performance and compatibility.
     [odbc package
     README](https://cran.r-project.org/package=odbc/readme/README.html#installation)
     and the [Impala ODBC driver installation
-    guide](https://www.cloudera.com/content/www/en-us/documentation/other/connectors/impala-odbc/latest/Cloudera-ODBC-Driver-for-Impala-Install-Guide.pdf).
+    guide](https://docs.cloudera.com/documentation/other/connectors/impala-odbc/latest/Cloudera-ODBC-Driver-for-Impala-Install-Guide.pdf).
 
 #### JDBC Connectivity
 
@@ -74,7 +74,7 @@ access to Impala through JDBC.
     Environment (JRE) installed.
 
 2.  Install the RJDBC package from CRAN:
-    
+
     ``` r
     install.packages("RJDBC")
     ```
@@ -85,7 +85,7 @@ access to Impala through JDBC.
 
 4.  Complete the installation and configuration steps described in the
     [Impala JDBC driver installation
-    guide](https://www.cloudera.com/content/www/en-us/documentation/other/connectors/impala-jdbc/latest/Cloudera-JDBC-Driver-for-Impala-Install-Guide.pdf).
+    guide](https://docs.cloudera.com/documentation/other/connectors/impala-jdbc/latest/Cloudera-JDBC-Driver-for-Impala-Install-Guide.pdf).
 
 ## Connecting to Impala
 
@@ -209,9 +209,9 @@ methods, including no authentication, username, username and password,
 and Kerberos. To use Kerberos, specify properties including `AuthMech`,
 `KrbRealm`, `KrbHostFQDN`, and `KrbServiceName`. Consult your system
 administrator and the [Impala ODBC driver installation
-guide](https://www.cloudera.com/content/www/en-us/documentation/other/connectors/impala-odbc/latest/Cloudera-ODBC-Driver-for-Impala-Install-Guide.pdf)
+guide](https://docs.cloudera.com/documentation/other/connectors/impala-odbc/latest/Cloudera-ODBC-Driver-for-Impala-Install-Guide.pdf)
 or [Impala JDBC driver installation
-guide](https://www.cloudera.com/content/www/en-us/documentation/other/connectors/impala-jdbc/latest/Cloudera-JDBC-Driver-for-Impala-Install-Guide.pdf).
+guide](https://docs.cloudera.com/documentation/other/connectors/impala-jdbc/latest/Cloudera-JDBC-Driver-for-Impala-Install-Guide.pdf).
 
 ## Using dplyr
 
@@ -250,7 +250,7 @@ about ways to load data from R into Impala.
 delay <- flights_tbl %>% 
   select(tailnum, distance, arr_delay) %>%
   group_by(tailnum) %>%
-  summarise(count = n(), dist = mean(distance), delay = mean(arr_delay)) %>%
+  summarise(count = n(), dist = mean(distance, na.rm = TRUE), delay = mean(arr_delay, na.rm = TRUE)) %>%
   filter(count > 20L, dist < 2000L, !is.na(delay)) %>%
   arrange(delay, dist, count) %>%
   collect()
@@ -269,7 +269,7 @@ automatically convert numbers to strings when they are used in a string
 context. Impala requires that you explicitly cast columns to the
 required types. implyr provides familiar R-style type conversion
 functions to enable casting to all the scalar [Impala data
-types](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_datatypes.html).
+types](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_datatypes.html).
 For example, `as.character()` casts a column or column expression to the
 Impala `STRING` type.
 
@@ -293,14 +293,14 @@ Like other SQL backends to dplyr, implyr delays work until a result
 needs to be computed, then computes the result as a single query
 operation.
 
-  - Use `collect()` to execute the query and return the result to R as a
+-   Use `collect()` to execute the query and return the result to R as a
     data frame `tbl`.
-  - Use `as.data.frame()` to execute the query and return the result to
+-   Use `as.data.frame()` to execute the query and return the result to
     R as an ordinary data frame.
-  - Use `compute(temporary = FALSE)` to execute the query and store the
+-   Use `compute(temporary = FALSE)` to execute the query and store the
     result in an Impala table. Impala does not support temporary tables,
     so `temporary = FALSE` is required.
-  - Use `collapse()` to generate the query for later execution.
+-   Use `collapse()` to generate the query for later execution.
 
 If you print or store a result without using one of these functions,
 then implyr returns a lazy `tbl`. Only use `collect()` or
@@ -350,7 +350,7 @@ southwest_flights <- semi_join(flights_tbl, southwest_airlines, by = "carrier")
 You can also use dplyr join functions to bring together values from
 `ARRAY` and `MAP` columns with scalar values from the same rows. See
 [Impala Complex
-Types](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_complex_types.html)
+Types](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_complex_types.html)
 for more details about `ARRAY` and `MAP` columns.
 
 Read the [Warnings and Current
@@ -527,20 +527,20 @@ uses parallel processing and stores data in multiple files, so the the
 notion of data being stored in sorted order is impractical. This has
 several important implications for the use of implyr:
 
-  - Rows are not necessarily returned in the same order that they were
+-   Rows are not necessarily returned in the same order that they were
     in when added to Impala. To return rows in a specific order, you
     must use `arrange()`.
-  - If row ordering is applied in an intermediate phase of query
+-   If row ordering is applied in an intermediate phase of query
     processing, Impala may not return the final result in sorted order.
     To ensure that results are in sorted order, apply `arrange()` last,
     after all other dplyr verbs. implyr will issue a warning if you
     apply `arrange()` in an earlier step.
-  - When using `compute()` to store results in an Impala table, Impala
+-   When using `compute()` to store results in an Impala table, Impala
     may not preserve row order. implyr will issue a warning if you use
     `arrange()` before `compute()`.
 
 See the [Impala ORDER BY
-documentation](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_order_by.html)
+documentation](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_order_by.html)
 for more information.
 
 #### Temporary Tables
@@ -563,7 +563,7 @@ Currently, implyr does not convert table names and column names to
 lowercase; you must specify them using all lowercase characters. For
 information about other limitations on table names and column names, see
 [Overview of Impala
-Identifiers](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_identifiers.html).
+Identifiers](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_identifiers.html).
 
 #### dplyr Support
 
@@ -582,9 +582,9 @@ session.
 
 The `median()` function returns a value that is approximately (not
 necessarily exactly) the median. See [APPX\_MEDIAN
-Function](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_appx_median.html).
+Function](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_appx_median.html).
 
 implyr supports some Impala functions that are not specified by R or by
 dplyr. See [Impala Built-In
-Functions](https://www.cloudera.com/documentation/enterprise/latest/topics/impala_functions.html)
+Functions](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_functions.html)
 for more information.

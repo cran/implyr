@@ -7,21 +7,23 @@ test_that("result from first dplyr example in README (with some tweaks) is consi
       select(tailnum, distance, arr_delay) %>%
       filter(!is.na(arr_delay)) %>%
       group_by(tailnum) %>%
-      summarise(count = n(), dist = mean(distance), delay = mean(arr_delay)) %>%
+      summarise(count = n(), dist = mean(distance, na.rm = TRUE), delay = mean(arr_delay, na.rm = TRUE)) %>%
       filter(count > 20L, dist < 2000L) %>%
       arrange(delay, dist, count, tailnum) %>%
       collect() %>%
-      mutate_if(is.double, round, 2)
+      mutate_if(is.double, round, 3) %>%
+      mutate(count = as.integer(count))
   }
   compare_tbls(list(tbl(impala, "flights"), nycflights13::flights), op = test_op, convert = TRUE)
 })
 
-test_that("result from second dplyr example in README is consistent with result on tbl_df", {
+test_that("result from second dplyr example in README (with a tweak) is consistent with result on tbl_df", {
   check_impala()
   test_op <- function(x) {
     x %>%
       transmute(flight_code = paste0(carrier, as.character(flight))) %>%
-      distinct(flight_code)
+      distinct(flight_code) %>%
+      arrange(flight_code)
   }
   compare_tbls(list(tbl(impala, "flights"), nycflights13::flights), op = test_op)
 })
@@ -32,7 +34,7 @@ test_that("result from third dplyr example in README (with some tweaks) is consi
     x %>%
       filter(!is.na(arr_delay)) %>%
       group_by(year, month, day) %>%
-      filter(arr_delay == max(arr_delay)) %>%
+      filter(arr_delay == max(arr_delay, na.rm = TRUE)) %>%
       arrange(year, month, day, carrier, flight) %>%
       collect() %>%
       select(-time_hour) %>%

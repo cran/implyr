@@ -1,4 +1,4 @@
-# Copyright 2019 Cloudera Inc.
+# Copyright 2021 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# register virtual class
+#' @importFrom methods setOldClass
+setOldClass("impala_connection")
 
 #' Describe the Impala data source
 #'
@@ -94,6 +98,16 @@ sql_escape_ident.impala_connection <- function(con, x) {
   impala_escape_ident(con, x, "`")
 }
 
+#' @importFrom DBI dbQuoteIdentifier
+#' @importFrom methods setMethod
+setMethod("dbQuoteIdentifier", c("impala_connection", "character"), function(conn, x, ...) {
+  impala_escape_ident(conn, x, "`")
+})
+
+setMethod("dbQuoteIdentifier", c("impala_connection", "ident"), function(conn, x, ...) {
+  impala_escape_ident(conn, x, "`")
+})
+
 #' @export
 #' @importFrom dplyr sql_escape_string
 sql_escape_string.impala_connection <- function(con, x) {
@@ -129,6 +143,7 @@ impala_escape_ident <- function(con, x, quote) {
 #' @importFrom dbplyr sql
 #' @importFrom dbplyr sql_expr
 #' @importFrom dbplyr sql_aggregate
+#' @importFrom dbplyr sql_infix
 #' @importFrom dbplyr sql_prefix
 #' @importFrom dbplyr sql_translator
 #' @importFrom dbplyr sql_variant
@@ -143,6 +158,8 @@ sql_translate_env.impala_connection <- function(con) {
   sql_variant(
     sql_translator(
       .parent = base_scalar,
+      # operators
+      `%/%` = sql_infix("DIV"),
       # type conversion functions
       as.character = function(x)
         build_sql("cast(", x, " as string)"),
@@ -594,7 +611,7 @@ db_commit.impala_connection <- function(con, ...) {
 #' @export
 #' @importFrom dplyr db_analyze
 db_analyze.impala_connection <- function(con, table, ...) {
-  sql <- build_sql("COMPUTE STATS", ident(table), con = con)
+  sql <- build_sql("COMPUTE STATS ", ident(table), con = con)
   dbExecute(con, sql)
 }
 
@@ -706,6 +723,12 @@ db_create_table.impala_connection <-
     is_nchar_one_string_or_null(field_terminator),
     is_nchar_one_string_or_null(line_terminator)
   )
+  if (isTRUE(grepl("^[[:cntrl:]]{1}$", field_terminator))) {
+    field_terminator <- gsub("\"", "", deparse(field_terminator), fixed = TRUE)
+  }
+  if (isTRUE(grepl("^[[:cntrl:]]{1}$", line_terminator))) {
+    line_terminator <- gsub("\"", "", deparse(line_terminator), fixed = TRUE)
+  }
   if (temporary) {
     stop(
       "Impala does not support temporary tables. Set temporary = FALSE in db_create_table().",
@@ -730,6 +753,8 @@ db_create_table.impala_connection <-
                    },
                    ident(table),
                    " ",
+                   fields,
+                   " ",
                    if (!is.null(field_terminator) ||
                        !is.null(line_terminator)) {
                      sql("ROW FORMAT DELIMITED ")
@@ -743,7 +768,6 @@ db_create_table.impala_connection <-
                    if (!is.null(file_format)) {
                      sql(paste0("STORED AS ", file_format, " "))
                    },
-                   fields,
                    con = con)
   dbExecute(con, sql)
 }
