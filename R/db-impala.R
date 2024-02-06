@@ -1,4 +1,4 @@
-# Copyright 2021 Cloudera Inc.
+# Copyright 2024 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# register virtual class
+# register virtual classes
 #' @importFrom methods setOldClass
 setOldClass("impala_connection")
+setOldClass("dbplyr_table_ident")
 
 #' Describe the Impala data source
 #'
@@ -68,7 +69,7 @@ db_desc.impala_connection <- function(x) {
 db_query_fields.impala_connection <- function(con, sql, ...) {
   # if the argument "sql" is an identifier, it will not contain whitespace
   # and if not, then it will contain whitespace
-  if (grepl("\\s", sql)) {
+  if (inherits(sql, "character") && grepl("\\s", sql)) {
     # get column names with SELECT ... WHERE FALSE
     sql <- sql_select(con, sql("*"), sql_subquery(con, sql), where = sql("FALSE"))
     qry <- dbSendQuery(con, sql)
@@ -76,6 +77,7 @@ db_query_fields.impala_connection <- function(con, sql, ...) {
     res <- dbFetch(qry, 0)
     names(res)
   } else {
+    sql <- format(sql)
     # get column names with DESCRIBE
     sql <- paste("DESCRIBE", sql)
     res <- dbGetQuery(con, sql)
@@ -104,7 +106,7 @@ setMethod("dbQuoteIdentifier", c("impala_connection", "character"), function(con
   impala_escape_ident(conn, x, "`")
 })
 
-setMethod("dbQuoteIdentifier", c("impala_connection", "ident"), function(conn, x, ...) {
+setMethod("dbQuoteIdentifier", c("impala_connection", "dbplyr_table_ident"), function(conn, x, ...) {
   impala_escape_ident(conn, x, "`")
 })
 

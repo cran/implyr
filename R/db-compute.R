@@ -1,4 +1,4 @@
-# Copyright 2021 Cloudera Inc.
+# Copyright 2024 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,11 +24,14 @@ db_sql_render.impala_connection <- function(con, sql, ...) {
   if (has_order_by(qry)) {
     pkg_env$order_by_in_query <- TRUE
   }
-  sql_render(qry, con = con, ...)
+  sql_out <- sql_render(qry, con = con, ...)
+  # hack to remove table name alias from complex (nested) column queries
+  sql_out <- gsub("(`.+?`\\, `.+?`\\.`.+?`) `q[0-9]+`", "\\1", sql_out)
+  sql_out
 }
 
 has_order_by_in_subquery <- function(x) {
-  if (inherits(x, "ident")) {
+  if (inherits(x, "dbplyr_table_ident")) {
     return(FALSE)
   }
   if (!inherits(x$from, "select_query")) {

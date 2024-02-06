@@ -46,8 +46,8 @@ performance and compatibility.
 
 1.  Ensure that the system where your R code will run supports ODBC.
     ODBC support is built into Windows but requires
-    [unixODBC](http://www.unixodbc.org) or [iODBC](http://www.iodbc.org)
-    on Linux and macOS.
+    [unixODBC](https://www.unixodbc.org) or
+    [iODBC](https://www.iodbc.org) on Linux and macOS.
 
 2.  Install the odbc package from CRAN:
 
@@ -293,14 +293,14 @@ Like other SQL backends to dplyr, implyr delays work until a result
 needs to be computed, then computes the result as a single query
 operation.
 
--   Use `collect()` to execute the query and return the result to R as a
-    data frame `tbl`.
--   Use `as.data.frame()` to execute the query and return the result to
-    R as an ordinary data frame.
--   Use `compute(temporary = FALSE)` to execute the query and store the
-    result in an Impala table. Impala does not support temporary tables,
-    so `temporary = FALSE` is required.
--   Use `collapse()` to generate the query for later execution.
+- Use `collect()` to execute the query and return the result to R as a
+  data frame `tbl`.
+- Use `as.data.frame()` to execute the query and return the result to R
+  as an ordinary data frame.
+- Use `compute(temporary = FALSE)` to execute the query and store the
+  result in an Impala table. Impala does not support temporary tables,
+  so `temporary = FALSE` is required.
+- Use `collapse()` to generate the query for later execution.
 
 If you print or store a result without using one of these functions,
 then implyr returns a lazy `tbl`. Only use `collect()` or
@@ -527,17 +527,17 @@ uses parallel processing and stores data in multiple files, so the the
 notion of data being stored in sorted order is impractical. This has
 several important implications for the use of implyr:
 
--   Rows are not necessarily returned in the same order that they were
-    in when added to Impala. To return rows in a specific order, you
-    must use `arrange()`.
--   If row ordering is applied in an intermediate phase of query
-    processing, Impala may not return the final result in sorted order.
-    To ensure that results are in sorted order, apply `arrange()` last,
-    after all other dplyr verbs. implyr will issue a warning if you
-    apply `arrange()` in an earlier step.
--   When using `compute()` to store results in an Impala table, Impala
-    may not preserve row order. implyr will issue a warning if you use
-    `arrange()` before `compute()`.
+- Rows are not necessarily returned in the same order that they were in
+  when added to Impala. To return rows in a specific order, you must use
+  `arrange()`.
+- If row ordering is applied in an intermediate phase of query
+  processing, Impala may not return the final result in sorted order. To
+  ensure that results are in sorted order, apply `arrange()` last, after
+  all other dplyr verbs. implyr will issue a warning if you apply
+  `arrange()` in an earlier step.
+- When using `compute()` to store results in an Impala table, Impala may
+  not preserve row order. implyr will issue a warning if you use
+  `arrange()` before `compute()`.
 
 See the [Impala ORDER BY
 documentation](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_order_by.html)
@@ -581,7 +581,7 @@ intermediate result will be small enough to fit in memory in your R
 session.
 
 The `median()` function returns a value that is approximately (not
-necessarily exactly) the median. See [APPX\_MEDIAN
+necessarily exactly) the median. See [APPX_MEDIAN
 Function](https://docs.cloudera.com/documentation/enterprise/latest/topics/impala_appx_median.html).
 
 implyr supports some Impala functions that are not specified by R or by

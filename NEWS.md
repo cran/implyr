@@ -1,3 +1,9 @@
+# implyr 0.5.0
+
+* Suppressed an object not found warning (#51)
+* Updated for compatibility with dbplyr 2.4.0 (#59, @liudvikasakelis)
+* Required newer versions of Depends and Imports packages
+
 # implyr 0.4.0
 
 * Fixed bugs in table creation (#47, @karoliskascenas)

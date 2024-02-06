@@ -1,4 +1,4 @@
-# Copyright 2021 Cloudera Inc.
+# Copyright 2024 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -191,7 +191,7 @@ src_impala <- function(drv, ..., auto_disconnect = TRUE) {
   }
 
   if (isClass("impala_connection", where = .GlobalEnv)) {
-    removeClass("impala_connection", where = .GlobalEnv)
+    suppressWarnings(removeClass("impala_connection", where = .GlobalEnv))
   }
   setClass("impala_connection",
            contains = class(con),
@@ -259,9 +259,9 @@ src_impala <- function(drv, ..., auto_disconnect = TRUE) {
 tbl.src_impala <- function(src, from, ...) {
   res <- tbl_sql("impala", src = src, from = from, ...)
   # omit complex columns from returned results
-  complex_types <- attr(res$ops$vars, "complex_type")
+  complex_types <- attr(res$lazy_query$vars, "complex_type")
   if (length(complex_types) > 0) {
-    omit <- res$ops$vars[!is.na(complex_types)]
+    omit <- res$lazy_query$vars[!is.na(complex_types)]
     if (length(omit) > 0) {
       complex_cols <- vars_select(colnames(res),  - (!! omit))
       res <- select(res, complex_cols)
